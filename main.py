@@ -1,8 +1,7 @@
 """
 ===============================================================
-  1xBet Crash - Cloud Collector (Render.com / Railway)
-  Tourne 24/7 sur serveur gratuit
-  Stocke dans SQLite + exporte en JSON
+  1xBet Crash - Cloud Collector v3 (Firebase)
+  Tourne 24/7 - Stocke dans Firebase Realtime DB
 ===============================================================
 """
 
@@ -15,6 +14,8 @@ import statistics
 import signal
 import sys
 import math
+import urllib.request
+import urllib.error
 from datetime import datetime
 from collections import deque
 from http.server import HTTPServer, BaseHTTPRequestHandler
@@ -28,8 +29,87 @@ DB_FILE = os.path.join(DATA_DIR, "crash.db")
 WS_URL = "wss://1xbet.com/games-frame/sockets/crash?ref=1&gr=285&whence=55&fcountry=165&appGuid=games-web-host-b2c-web-v3&lng=fr&v=1.5"
 PORT = int(os.environ.get("PORT", 10000))
 
+# Firebase
+FIREBASE_URL = os.environ.get(
+    "FIREBASE_URL",
+    "https://xbet-8a511-default-rtdb.europe-west1.firebasedatabase.app"
+)
 
-# ========== DATABASE ==========
+
+# ========== FIREBASE ==========
+class Firebase:
+    """Firebase Realtime Database via REST API"""
+
+    def __init__(self, base_url):
+        self.base_url = base_url.rstrip("/")
+        self.batch = []
+        self.batch_size = 10  # Envoyer par lots de 10
+
+    def push_round(self, round_id, multiplier, timestamp=0, cashouts=0):
+        """Envoie un resultat a Firebase"""
+        data = {
+            "m": multiplier,
+            "ts": timestamp,
+            "co": cashouts,
+            "at": datetime.utcnow().isoformat() + "Z"
+        }
+        self.batch.append((round_id, data))
+
+        if len(self.batch) >= self.batch_size:
+            self._flush()
+
+    def _flush(self):
+        """Envoie le batch a Firebase"""
+        if not self.batch:
+            return
+
+        # Preparer les donnees en batch
+        batch_data = {}
+        for rid, data in self.batch:
+            batch_data[str(rid)] = data
+
+        try:
+            url = f"{self.base_url}/rounds.json"
+            req_data = json.dumps(batch_data).encode("utf-8")
+            req = urllib.request.Request(url, data=req_data, method="PATCH")
+            req.add_header("Content-Type", "application/json")
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                if resp.status == 200:
+                    pass  # OK
+        except Exception as e:
+            print(f"[Firebase] Erreur batch: {e}", flush=True)
+
+        self.batch.clear()
+
+    def update_stats(self, stats):
+        """Met a jour les stats dans Firebase"""
+        try:
+            url = f"{self.base_url}/stats.json"
+            req_data = json.dumps(stats).encode("utf-8")
+            req = urllib.request.Request(url, data=req_data, method="PUT")
+            req.add_header("Content-Type", "application/json")
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                pass
+        except Exception as e:
+            print(f"[Firebase] Erreur stats: {e}", flush=True)
+
+    def update_live(self, live_data):
+        """Met a jour les donnees live"""
+        try:
+            url = f"{self.base_url}/live.json"
+            req_data = json.dumps(live_data).encode("utf-8")
+            req = urllib.request.Request(url, data=req_data, method="PUT")
+            req.add_header("Content-Type", "application/json")
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                pass
+        except Exception as e:
+            print(f"[Firebase] Erreur live: {e}", flush=True)
+
+    def force_flush(self):
+        self._flush()
+
+
+# ========== LOCAL DB ==========
 class DB:
     def __init__(self):
         self.conn = sqlite3.connect(DB_FILE, check_same_thread=False)
@@ -93,6 +173,7 @@ class Analyzer:
             "min": round(min(mults), 2),
             "max": round(max(mults), 2),
             "stdev": round(statistics.stdev(mults), 2) if n > 1 else 0,
+            "updated_at": datetime.utcnow().isoformat() + "Z",
         }
 
         # Distribution
@@ -104,32 +185,33 @@ class Analyzer:
             dist[label] = {"count": c, "pct": round(c/n*100, 1)}
         result["distribution"] = dist
 
-        # Survival probabilities
+        # Survival
         survival = {}
         for t in [1.5, 2.0, 3.0, 5.0, 10.0, 20.0, 50.0]:
             c = sum(1 for m in mults if m >= t)
-            survival[f">={t}x"] = round(c/n*100, 1)
+            survival[f"gte_{t}x"] = round(c/n*100, 1)
         result["survival"] = survival
 
-        # Sequential correlation
+        # Correlations (>= 100)
         if n >= 100:
-            correlations = {}
-            scenarios = [("<1.5x", lambda m: m < 1.5), ("<2x", lambda m: m < 2.0),
-                        (">5x", lambda m: m > 5.0), (">10x", lambda m: m > 10.0)]
+            corr = {}
+            scenarios = [("lt_1_5x", lambda m: m < 1.5), ("lt_2x", lambda m: m < 2.0),
+                        ("gt_5x", lambda m: m > 5.0), ("gt_10x", lambda m: m > 10.0)]
             for label, cond in scenarios:
                 after = [mults[i] for i in range(1, n) if cond(mults[i-1])]
                 if len(after) >= 5:
-                    correlations[f"after_{label}"] = {
-                        "count": len(after),
+                    corr[f"after_{label}"] = {
+                        "cases": len(after),
                         "mean": round(statistics.mean(after), 2),
-                        "p_above_2x": round(sum(1 for m in after if m >= 2.0)/len(after)*100, 1),
-                        "p_above_5x": round(sum(1 for m in after if m >= 5.0)/len(after)*100, 1),
+                        "p_2x": round(sum(1 for m in after if m >= 2.0)/len(after)*100, 1),
+                        "p_5x": round(sum(1 for m in after if m >= 5.0)/len(after)*100, 1),
                     }
-            result["correlations"] = correlations
+            result["correlations"] = corr
 
-        # Streaks
-        if n >= 100:
+        # Streaks (>= 200)
+        if n >= 200:
             streaks = {}
+            global_avg = statistics.mean(mults)
             for slen in [3, 4, 5, 6, 7, 8]:
                 nexts = []
                 for i in range(slen, n):
@@ -137,20 +219,19 @@ class Analyzer:
                         nexts.append(mults[i])
                 if nexts and len(nexts) >= 3:
                     avg = statistics.mean(nexts)
-                    global_avg = statistics.mean(mults)
                     diff = round(((avg/global_avg)-1)*100, 1)
                     streaks[f"after_{slen}_low"] = {
-                        "count": len(nexts),
+                        "cases": len(nexts),
                         "mean": round(avg, 2),
-                        "vs_global_pct": diff,
-                        "p_above_2x": round(sum(1 for m in nexts if m >= 2.0)/len(nexts)*100, 1),
+                        "vs_global": diff,
+                        "p_2x": round(sum(1 for m in nexts if m >= 2.0)/len(nexts)*100, 1),
                         "interesting": diff > 20
                     }
             result["streaks"] = streaks
 
-        # Autocorrelation
+        # Autocorrelation (>= 200)
         if n >= 200:
-            autocorr = {}
+            ac = {}
             for lag in range(1, 6):
                 pairs = [(mults[i], mults[i-lag]) for i in range(lag, n)]
                 mx = statistics.mean([p[0] for p in pairs])
@@ -158,11 +239,11 @@ class Analyzer:
                 cov = sum((x-mx)*(y-my) for x,y in pairs)/len(pairs)
                 sx = statistics.stdev([p[0] for p in pairs])
                 sy = statistics.stdev([p[1] for p in pairs])
-                r = cov/(sx*sy) if sx*sy > 0 else 0
-                autocorr[f"lag_{lag}"] = {"r": round(r, 4), "significant": abs(r) > 0.1}
-            result["autocorrelation"] = autocorr
+                r = round(cov/(sx*sy), 4) if sx*sy > 0 else 0
+                ac[f"lag_{lag}"] = {"r": r, "signal": abs(r) > 0.1}
+            result["autocorrelation"] = ac
 
-        # Current streak
+        # Current state
         last_10 = self.db.get_last(10)
         low_streak = 0
         for m in reversed(last_10):
@@ -170,13 +251,11 @@ class Analyzer:
                 low_streak += 1
             else:
                 break
-        result["current_low_streak"] = low_streak
-        result["last_10"] = [round(m, 2) for m in last_10]
 
-        # Prediction
-        result["prediction"] = {
-            "tip": "ATTENDRE" if low_streak < 3 else "2x+ possible" if low_streak < 5 else "BON MOMENT pour 2x+",
-            "streak": low_streak,
+        result["current"] = {
+            "last_10": [round(m, 2) for m in last_10],
+            "low_streak": low_streak,
+            "tip": "ATTENDRE" if low_streak < 3 else "2x+ possible" if low_streak < 5 else "BON MOMENT",
         }
 
         # Progress
@@ -189,42 +268,37 @@ class Analyzer:
         return result
 
 
-# ========== HEALTH SERVER (Render needs a port) ==========
-class HealthHandler(BaseHTTPRequestHandler):
+# ========== HTTP API ==========
+class Handler(BaseHTTPRequestHandler):
     db = None
     analyzer = None
     collector = None
 
-    def log_message(self, format, *args):
-        pass  # Silence logs
+    def log_message(self, *a):
+        pass
 
     def do_GET(self):
         if self.path == "/":
-            self._respond(200, {"status": "running", "rounds": self.db.count() if self.db else 0})
+            self._json(200, {"status": "running", "rounds": self.db.count() if self.db else 0,
+                             "firebase": FIREBASE_URL.split("/")[-1].split(".")[0]})
         elif self.path == "/stats":
-            if self.analyzer:
-                self._respond(200, self.analyzer.analyze())
-            else:
-                self._respond(503, {"error": "not ready"})
+            self._json(200, self.analyzer.analyze() if self.analyzer else {})
         elif self.path == "/recent":
-            if self.db:
-                self._respond(200, {"rounds": self.db.get_recent_rounds(50)})
-            else:
-                self._respond(503, {"error": "not ready"})
+            self._json(200, {"rounds": self.db.get_recent_rounds(50)} if self.db else {})
         elif self.path == "/live":
             if self.collector:
-                self._respond(200, {
+                self._json(200, {
                     "total": self.collector.round_count,
                     "last_10": [round(m, 2) for m in self.collector.last_10],
                     "connected": self.collector.connected,
-                    "uptime_min": int((datetime.utcnow() - self.collector.start_time).total_seconds() / 60)
+                    "uptime_h": round((datetime.utcnow() - self.collector.start_time).total_seconds() / 3600, 1)
                 })
             else:
-                self._respond(503, {"error": "not ready"})
+                self._json(503, {})
         else:
-            self._respond(404, {"error": "not found"})
+            self._json(404, {"error": "not found"})
 
-    def _respond(self, code, data):
+    def _json(self, code, data):
         self.send_response(code)
         self.send_header("Content-Type", "application/json")
         self.send_header("Access-Control-Allow-Origin", "*")
@@ -233,9 +307,10 @@ class HealthHandler(BaseHTTPRequestHandler):
 
 
 # ========== COLLECTOR ==========
-class CloudCollector:
+class Collector:
     def __init__(self):
         self.db = DB()
+        self.firebase = Firebase(FIREBASE_URL)
         self.analyzer = Analyzer(self.db)
         self.running = True
         self.connected = False
@@ -246,39 +321,29 @@ class CloudCollector:
 
         if self.round_count > 0:
             self.last_10.extend(self.db.get_last(10))
-            self.log(f"Reprise: {self.round_count} resultats en base")
+            self.log(f"Reprise: {self.round_count} en base")
 
     def log(self, msg):
-        ts = datetime.utcnow().strftime("%H:%M:%S")
-        print(f"[{ts}] {msg}", flush=True)
+        print(f"[{datetime.utcnow().strftime('%H:%M:%S')}] {msg}", flush=True)
 
     async def run(self):
-        # Demarrer le serveur HTTP dans un thread
-        server = HTTPServer(("0.0.0.0", PORT), HealthHandler)
-        HealthHandler.db = self.db
-        HealthHandler.analyzer = self.analyzer
-        HealthHandler.collector = self
-        thread = threading.Thread(target=server.serve_forever, daemon=True)
-        thread.start()
-        self.log(f"API demarree sur port {PORT}")
-        self.log(f"  GET /       -> status")
-        self.log(f"  GET /stats  -> analyse complete")
-        self.log(f"  GET /recent -> 50 derniers resultats")
-        self.log(f"  GET /live   -> donnees en direct")
+        # HTTP server
+        srv = HTTPServer(("0.0.0.0", PORT), Handler)
+        Handler.db = self.db
+        Handler.analyzer = self.analyzer
+        Handler.collector = self
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        self.log(f"API sur :{PORT} | Firebase: {FIREBASE_URL.split('/')[-1][:30]}")
 
-        # Boucle de collecte
         while self.running:
             try:
-                self.log("Connexion WebSocket...")
-                headers = {
-                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-                    "Origin": "https://1xbet.com",
-                }
+                self.log("Connexion WS...")
+                headers = {"User-Agent": "Mozilla/5.0", "Origin": "https://1xbet.com"}
 
                 async with websockets.connect(
                     WS_URL, additional_headers=headers,
                     ping_interval=20, ping_timeout=15,
-                    max_size=2**20, open_timeout=30, close_timeout=5,
+                    max_size=2**20, open_timeout=30,
                 ) as ws:
                     self.connected = True
                     self.log("Connecte!")
@@ -289,7 +354,7 @@ class CloudCollector:
                         "arguments": [{"activity": 30, "currency": 27}],
                         "invocationId": "0", "target": "Guest", "type": 1
                     }) + "\x1e")
-                    self.log("Mode Guest OK")
+                    self.log("Guest OK")
 
                     while self.running:
                         try:
@@ -298,7 +363,6 @@ class CloudCollector:
                         except asyncio.TimeoutError:
                             await ws.send(json.dumps({"type": 6}) + "\x1e")
                         except websockets.exceptions.ConnectionClosed:
-                            self.log("Deconnecte")
                             break
 
                 self.connected = False
@@ -307,6 +371,7 @@ class CloudCollector:
                 self.log(f"Erreur: {e}")
 
             if self.running:
+                self.firebase.force_flush()
                 self.log("Reconnexion 5s...")
                 await asyncio.sleep(5)
 
@@ -329,7 +394,9 @@ class CloudCollector:
                     if m > 0 and self.db.insert(rid, m):
                         self.last_10.append(m)
                         self.round_count += 1
-                self.log(f"Historique charge. Total: {self.round_count}")
+                        self.firebase.push_round(rid, m)
+                self.firebase.force_flush()
+                self.log(f"Historique OK. Total: {self.round_count}")
 
             elif target == "OnStart":
                 self.current_cashouts = []
@@ -346,39 +413,58 @@ class CloudCollector:
                     self.round_count += 1
                     self.last_10.append(mult)
 
-                    recent = " ".join(f"{m:.1f}" for m in list(self.last_10)[-8:])
-                    self.log(f"#{rid} = {mult:.2f}x [{recent}] total:{self.round_count}")
+                    # Firebase
+                    self.firebase.push_round(rid, mult, ts, len(self.current_cashouts))
 
-                    # Analyse auto
-                    if self.round_count in [50, 100, 200, 500, 1000, 2000, 5000, 10000]:
-                        analysis = self.analyzer.analyze()
-                        self.log(f"=== ANALYSE A {self.round_count} ===")
-                        if "correlations" in analysis:
-                            for k, v in analysis["correlations"].items():
-                                self.log(f"  {k}: moy={v['mean']}x, >=2x:{v['p_above_2x']}%")
-                        if "streaks" in analysis:
-                            for k, v in analysis["streaks"].items():
-                                flag = " ** FAILLE? **" if v.get("interesting") else ""
-                                self.log(f"  {k}: moy={v['mean']}x ({v['vs_global_pct']:+.0f}%){flag}")
+                    recent = " ".join(f"{m:.1f}" for m in list(self.last_10)[-8:])
+                    self.log(f"#{rid} {mult:.2f}x [{recent}] #{self.round_count}")
+
+                    # Update Firebase live
+                    if self.round_count % 5 == 0:
+                        low_streak = 0
+                        for m in reversed(list(self.last_10)):
+                            if m < 2.0:
+                                low_streak += 1
+                            else:
+                                break
+
+                        self.firebase.update_live({
+                            "total": self.round_count,
+                            "last_10": [round(m, 2) for m in self.last_10],
+                            "streak": low_streak,
+                            "tip": "ATTENDRE" if low_streak < 3 else "2x+" if low_streak < 5 else "GO",
+                            "updated": datetime.utcnow().isoformat() + "Z"
+                        })
+
+                    # Update Firebase stats periodiquement
+                    if self.round_count in [50, 100, 200, 500, 1000, 2000, 5000, 10000] or self.round_count % 100 == 0:
+                        stats = self.analyzer.analyze()
+                        self.firebase.update_stats(stats)
+                        self.log(f"=== Stats Firebase mises a jour ({self.round_count}) ===")
 
 
 async def main():
     print("""
     ====================================================
-      1xBet CRASH Cloud Collector
-      Tourne 24/7 - API accessible en HTTP
+      1xBet CRASH Collector v3 (Firebase)
+      24/7 Cloud + Firebase Realtime DB
     ====================================================
     """, flush=True)
 
-    collector = CloudCollector()
+    collector = Collector()
 
     def on_exit(sig, frame):
         collector.running = False
-        collector.log("Arret...")
+        collector.firebase.force_flush()
+        collector.log("Arret.")
         sys.exit(0)
 
     signal.signal(signal.SIGINT, on_exit)
     signal.signal(signal.SIGTERM, on_exit)
+
+    print(f"  Firebase: {FIREBASE_URL}", flush=True)
+    print(f"  DB local: {DB_FILE}", flush=True)
+    print(f"  En base:  {collector.round_count} resultats\n", flush=True)
 
     await collector.run()
 
