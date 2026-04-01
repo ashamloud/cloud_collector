@@ -366,12 +366,8 @@
 
 <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
 
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 <script>
-firebase.initializeApp({databaseURL:"https://xbet-8a511-default-rtdb.europe-west1.firebasedatabase.app"});
-const db = firebase.database();
-
+const FB = "https://xbet-8a511-default-rtdb.europe-west1.firebasedatabase.app";
 let live = null, stats = null, prevResult = null;
 
 function chipClass(m) {
@@ -383,21 +379,6 @@ function chipClass(m) {
     return 'c6';
 }
 function sigClass(s) { return 's'+(s||0); }
-function probColor(p) {
-    if(p>=60) return 'var(--green)';
-    if(p>=40) return 'var(--gold)';
-    if(p>=25) return 'var(--orange)';
-    return 'var(--text3)';
-}
-function barGrad(label) {
-    const g = {
-        '2x':'linear-gradient(90deg,#3b82f6,#2563eb)',
-        '3x':'linear-gradient(90deg,#8b5cf6,#6d28d9)',
-        '5x':'linear-gradient(90deg,#ff9100,#e65100)',
-        '10x':'linear-gradient(90deg,#00e676,#00c853)',
-    };
-    return g[label]||'var(--blue)';
-}
 function ago(s) {
     if(!s) return '-';
     const d=(Date.now()-new Date(s).getTime())/1000;
@@ -409,6 +390,20 @@ function ago(s) {
 function confBadge(c) {
     const cols = {FAIBLE:'rgba(255,61,90,0.15);color:#ff6b81',MOYENNE:'rgba(255,145,0,0.12);color:#ffb74d',BONNE:'rgba(255,215,64,0.12);color:#ffd740',FORTE:'rgba(0,230,118,0.12);color:#69f0ae'};
     return `<span class="confidence-badge" style="background:${(cols[c]||cols.FAIBLE).split(';')[0]};${(cols[c]||cols.FAIBLE).split(';')[1]}">${c||'?'}</span>`;
+}
+
+async function fetchData() {
+    try {
+        const [liveRes, statsRes] = await Promise.all([
+            fetch(FB + '/live.json').then(r => r.json()),
+            fetch(FB + '/stats.json').then(r => r.json())
+        ]);
+        live = liveRes;
+        stats = statsRes;
+        render();
+    } catch(e) {
+        console.error('Fetch error:', e);
+    }
 }
 
 function render() {
@@ -443,10 +438,10 @@ function render() {
                 </div>
             </div>
             <div class="prob-grid">
-                ${[['2x',pred.p2x,'#3b82f6'],['3x',((pred.p2x||0)*0.65).toFixed(0),'#8b5cf6'],['5x',pred.p5x,'#ff9100'],['10x',pred.p10x,'#00e676']].map(([lbl,pct,col])=>`
+                ${[['2x',pred.p2x,'#3b82f6'],['3x',Math.round((pred.p2x||0)*0.65),'#8b5cf6'],['5x',pred.p5x,'#ff9100'],['10x',pred.p10x,'#00e676']].map(([lbl,pct,col])=>`
                 <div class="prob-card ${(pct||0)>55?'hot':''}">
                     <div class="prob-mult">&ge; ${lbl}</div>
-                    <div class="prob-pct" style="color:${col}">${(pct||0).toFixed(0)}%</div>
+                    <div class="prob-pct" style="color:${col}">${Math.round(pct||0)}%</div>
                     <div class="prob-bar-outer"><div class="prob-bar-inner" style="width:${pct||0}%;background:${col}"></div></div>
                 </div>`).join('')}
             </div>
@@ -484,31 +479,21 @@ function render() {
     // === SURVIVAL ===
     if(s.survival) {
         h += `<div class="card"><div class="card-title">Probabilites de survie</div>`;
-        const items = [['&ge; 2x','gte_2.0x','#3b82f6'],['&ge; 3x','gte_3.0x','#8b5cf6'],['&ge; 5x','gte_5.0x','#ff9100'],['&ge; 10x','gte_10.0x','#00e676'],['&ge; 20x','gte_20.0x','#00e5ff']];
-        items.forEach(([lbl,key,col])=>{
+        [['&ge; 2x','gte_2.0x','#3b82f6'],['&ge; 3x','gte_3.0x','#8b5cf6'],['&ge; 5x','gte_5.0x','#ff9100'],['&ge; 10x','gte_10.0x','#00e676'],['&ge; 20x','gte_20.0x','#00e5ff']].forEach(([lbl,key,col])=>{
             const v = s.survival[key]||0;
-            h += `<div class="dist-row">
-                <div class="dist-label">${lbl}</div>
-                <div class="dist-bar-bg"><div class="dist-bar" style="width:${v}%;background:${col}"></div></div>
-                <div class="dist-pct">${v}%</div>
-            </div>`;
+            h += `<div class="dist-row"><div class="dist-label">${lbl}</div><div class="dist-bar-bg"><div class="dist-bar" style="width:${v}%;background:${col}"></div></div><div class="dist-pct">${v}%</div></div>`;
         });
         h += '</div>';
     }
 
     // === DISTRIBUTION ===
     if(s.distribution) {
-        const d=s.distribution;
-        const cols=['#ff3d5a','#ff6b81','#ffb74d','#ffd740','#69f0ae','#18ffff','#b388ff','#ea80fc'];
+        const d=s.distribution, cols=['#ff3d5a','#ff6b81','#ffb74d','#ffd740','#69f0ae','#18ffff','#b388ff','#ea80fc'];
         const names={instant:'1.0-1.2x',tres_bas:'1.2-1.5x',bas:'1.5-2.0x',moyen:'2.0-3.0x',haut:'3.0-5.0x',eleve:'5-10x',rare:'10-50x',mega:'50x+'};
         h += `<div class="card"><div class="card-title">Distribution</div>`;
         let i=0;
         for(const[k,v] of Object.entries(d)) {
-            h += `<div class="dist-row">
-                <div class="dist-label">${names[k]||k}</div>
-                <div class="dist-bar-bg"><div class="dist-bar" style="width:${v.pct}%;background:${cols[i]}"></div></div>
-                <div class="dist-pct">${v.pct}%</div>
-            </div>`;
+            h += `<div class="dist-row"><div class="dist-label">${names[k]||k}</div><div class="dist-bar-bg"><div class="dist-bar" style="width:${v.pct}%;background:${cols[i]}"></div></div><div class="dist-pct">${v.pct}%</div></div>`;
             i++;
         }
         h += '</div>';
@@ -517,11 +502,9 @@ function render() {
     // === CORRELATIONS ===
     if(s.correlations && Object.keys(s.correlations).length) {
         const labels={after_lt_1_5x:'Apres &lt;1.5x',after_lt_2x:'Apres &lt;2x',after_gt_5x:'Apres &gt;5x',after_gt_10x:'Apres &gt;10x'};
-        h += `<div class="card"><div class="card-title">Correlations</div>
-        <table class="tbl"><tr><th>Condition</th><th>Cas</th><th>Moy</th><th>&ge;2x</th><th>&ge;5x</th></tr>`;
+        h += `<div class="card"><div class="card-title">Correlations</div><table class="tbl"><tr><th>Condition</th><th>Cas</th><th>Moy</th><th>&ge;2x</th><th>&ge;5x</th></tr>`;
         for(const[k,v] of Object.entries(s.correlations)) {
-            h += `<tr><td>${labels[k]||k}</td><td>${v.cases}</td><td>${v.mean}x</td>
-            <td class="${v.p_2x>55?'hl':''}">${v.p_2x}%</td><td class="${v.p_5x>25?'warn':''}">${v.p_5x}%</td></tr>`;
+            h += `<tr><td>${labels[k]||k}</td><td>${v.cases}</td><td>${v.mean}x</td><td class="${v.p_2x>55?'hl':''}">${v.p_2x}%</td><td class="${v.p_5x>25?'warn':''}">${v.p_5x}%</td></tr>`;
         }
         h += '</table></div>';
     }
@@ -531,25 +514,16 @@ function render() {
         h += `<div class="card"><div class="card-title">Analyse des series</div>`;
         for(const[k,v] of Object.entries(s.streaks)) {
             const n = k.match(/\d+/)?.[0]||'?';
-            h += `<div class="streak-item ${v.interesting?'hot':''}">
-                <div><strong>${n} crash &lt;2x</strong><br><span style="font-size:0.7rem;color:var(--text3)">${v.cases} cas</span></div>
-                <div style="text-align:right">
-                    <span style="font-family:JetBrains Mono;font-weight:700;color:${v.interesting?'var(--green)':'var(--text)'}">${v.mean}x</span>
-                    <br><span style="font-size:0.7rem;color:${v.vs_global>0?'var(--green)':'var(--red)'}">${v.vs_global>0?'+':''}${v.vs_global}%</span>
-                </div>
-            </div>`;
+            h += `<div class="streak-item ${v.interesting?'hot':''}"><div><strong>${n} crash &lt;2x</strong><br><span style="font-size:0.7rem;color:var(--text3)">${v.cases} cas</span></div><div style="text-align:right"><span style="font-family:JetBrains Mono;font-weight:700;color:${v.interesting?'var(--green)':'var(--text)'}">${v.mean}x</span><br><span style="font-size:0.7rem;color:${v.vs_global>0?'var(--green)':'var(--red)'}">${v.vs_global>0?'+':''}${v.vs_global}%</span></div></div>`;
         }
         h += '</div>';
     }
 
     // === AUTOCORRELATION ===
     if(s.autocorrelation) {
-        h += `<div class="card"><div class="card-title">Auto-correlation</div>
-        <table class="tbl"><tr><th>Lag</th><th>r</th><th>Signal</th></tr>`;
+        h += `<div class="card"><div class="card-title">Auto-correlation</div><table class="tbl"><tr><th>Lag</th><th>r</th><th>Signal</th></tr>`;
         for(const[k,v] of Object.entries(s.autocorrelation)) {
-            h += `<tr><td>${k.replace('lag_','Lag ')}</td>
-            <td style="font-family:JetBrains Mono">${v.r>0?'+':''}${v.r}</td>
-            <td>${v.signal?'<span class="warn">&#9888; Signal</span>':'<span style="color:var(--text3)">Aleatoire</span>'}</td></tr>`;
+            h += `<tr><td>${k.replace('lag_','Lag ')}</td><td style="font-family:JetBrains Mono">${v.r>0?'+':''}${v.r}</td><td>${v.signal?'<span class="warn">&#9888; Signal</span>':'<span style="color:var(--text3)">Aleatoire</span>'}</td></tr>`;
         }
         h += '</table></div>';
     }
@@ -560,23 +534,19 @@ function render() {
         h += `<div class="card full"><div class="card-title">Progression</div>`;
         for(const[k,v] of Object.entries(s.progress)) {
             const p = Math.min(100,(v.current/v.target)*100);
-            h += `<div class="prog-row">
-                <div class="prog-name">${v.done?'&#9989;':'&#9203;'} ${names[k]||k}</div>
-                <div class="prog-bar-bg"><div class="prog-bar" style="width:${p}%"></div></div>
-                <div class="prog-pct">${v.current}/${v.target}</div>
-            </div>`;
+            h += `<div class="prog-row"><div class="prog-name">${v.done?'&#9989;':'&#9203;'} ${names[k]||k}</div><div class="prog-bar-bg"><div class="prog-bar" style="width:${p}%"></div></div><div class="prog-pct">${v.current}/${v.target}</div></div>`;
         }
         h += '</div>';
     }
 
     h += '</div>';
-    h += `<div class="footer">Donnees temps reel via WebSocket &bull; Firebase Realtime DB &bull; Analyse auto toutes les 50 rounds</div>`;
-
+    h += `<div class="footer">Donnees temps reel via WebSocket &bull; Firebase REST API &bull; Auto-refresh 5s</div>`;
     document.getElementById('app').innerHTML = h;
 }
 
-db.ref('live').on('value', s => { live = s.val(); render(); });
-db.ref('stats').on('value', s => { stats = s.val(); render(); });
+// Initial fetch + auto-refresh every 5 seconds
+fetchData();
+setInterval(fetchData, 5000);
 setInterval(()=>{
     const el=document.getElementById('lastUpdate');
     if(el && live?.updated) el.textContent=ago(live.updated);
