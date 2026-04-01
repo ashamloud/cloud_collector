@@ -273,14 +273,16 @@ class Handler(BaseHTTPRequestHandler):
     db = None
     analyzer = None
     collector = None
+    dashboard_html = None
 
     def log_message(self, *a):
         pass
 
     def do_GET(self):
-        if self.path == "/":
-            self._json(200, {"status": "running", "rounds": self.db.count() if self.db else 0,
-                             "firebase": FIREBASE_URL.split("/")[-1].split(".")[0]})
+        if self.path == "/" or self.path == "/dashboard" or self.path == "/dashboard.html":
+            self._html()
+        elif self.path == "/api":
+            self._json(200, {"status": "running", "rounds": self.db.count() if self.db else 0})
         elif self.path == "/stats":
             self._json(200, self.analyzer.analyze() if self.analyzer else {})
         elif self.path == "/recent":
@@ -297,6 +299,22 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(503, {})
         else:
             self._json(404, {"error": "not found"})
+
+    def _html(self):
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.end_headers()
+        if self.dashboard_html:
+            self.wfile.write(self.dashboard_html)
+        else:
+            # Try to load from file
+            html_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "dashboard.html")
+            if os.path.exists(html_path):
+                with open(html_path, "rb") as f:
+                    Handler.dashboard_html = f.read()
+                self.wfile.write(Handler.dashboard_html)
+            else:
+                self.wfile.write(b"<h1>Dashboard not found</h1>")
 
     def _json(self, code, data):
         self.send_response(code)
@@ -419,25 +437,74 @@ class Collector:
                     recent = " ".join(f"{m:.1f}" for m in list(self.last_10)[-8:])
                     self.log(f"#{rid} {mult:.2f}x [{recent}] #{self.round_count}")
 
-                    # Update Firebase live
-                    if self.round_count % 5 == 0:
-                        low_streak = 0
-                        for m in reversed(list(self.last_10)):
-                            if m < 2.0:
-                                low_streak += 1
-                            else:
-                                break
+                    # Update Firebase live AFTER EVERY RESULT
+                    low_streak = 0
+                    for m in reversed(list(self.last_10)):
+                        if m < 2.0:
+                            low_streak += 1
+                        else:
+                            break
 
-                        self.firebase.update_live({
-                            "total": self.round_count,
-                            "last_10": [round(m, 2) for m in self.last_10],
-                            "streak": low_streak,
-                            "tip": "ATTENDRE" if low_streak < 3 else "2x+" if low_streak < 5 else "GO",
-                            "updated": datetime.utcnow().isoformat() + "Z"
-                        })
+                    # Calcul predictions avancees
+                    last_100 = self.db.get_last(min(100, self.round_count))
+                    p2 = sum(1 for m in last_100 if m >= 2.0) / len(last_100) * 100 if last_100 else 50
+                    p5 = sum(1 for m in last_100 if m >= 5.0) / len(last_100) * 100 if last_100 else 20
+                    p10 = sum(1 for m in last_100 if m >= 10.0) / len(last_100) * 100 if last_100 else 10
+
+                    # Ajustement par streak
+                    bonus = low_streak * 3
+                    adj_p2 = min(p2 + bonus, 95)
+                    adj_p5 = min(p5 + bonus * 0.6, 70)
+                    adj_p10 = min(p10 + bonus * 0.3, 40)
+
+                    # Confiance
+                    if self.round_count < 100:
+                        confidence = "FAIBLE"
+                    elif self.round_count < 500:
+                        confidence = "MOYENNE"
+                    elif self.round_count < 1000:
+                        confidence = "BONNE"
+                    else:
+                        confidence = "FORTE"
+
+                    if low_streak >= 5:
+                        tip = "GO 2x+"
+                        signal_strength = 3
+                    elif low_streak >= 3:
+                        tip = "PROBABLE 2x+"
+                        signal_strength = 2
+                    elif low_streak >= 2:
+                        tip = "SURVEILLER"
+                        signal_strength = 1
+                    else:
+                        tip = "ATTENDRE"
+                        signal_strength = 0
+
+                    self.firebase.update_live({
+                        "round": rid,
+                        "result": mult,
+                        "total": self.round_count,
+                        "last_10": [round(m, 2) for m in self.last_10],
+                        "last_20": [round(m, 2) for m in self.db.get_last(20)],
+                        "streak": low_streak,
+                        "tip": tip,
+                        "signal": signal_strength,
+                        "prediction": {
+                            "p2x": round(adj_p2, 1),
+                            "p5x": round(adj_p5, 1),
+                            "p10x": round(adj_p10, 1),
+                            "raw_p2x": round(p2, 1),
+                            "raw_p5x": round(p5, 1),
+                            "raw_p10x": round(p10, 1),
+                            "confidence": confidence,
+                            "avg_100": round(statistics.mean(last_100), 2) if last_100 else 0,
+                        },
+                        "updated": datetime.utcnow().isoformat() + "Z"
+                    })
+                    self.firebase.force_flush()
 
                     # Update Firebase stats periodiquement
-                    if self.round_count in [50, 100, 200, 500, 1000, 2000, 5000, 10000] or self.round_count % 100 == 0:
+                    if self.round_count in [50, 100, 200, 500, 1000, 2000, 5000, 10000] or self.round_count % 50 == 0:
                         stats = self.analyzer.analyze()
                         self.firebase.update_stats(stats)
                         self.log(f"=== Stats Firebase mises a jour ({self.round_count}) ===")
