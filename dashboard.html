@@ -3,346 +3,113 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CRASH PREDICTOR - Live Dashboard</title>
+    <title>CRASH PREDICTOR - Live</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600;700;800&display=swap" rel="stylesheet">
     <style>
-        :root {
-            --bg: #06080f;
-            --bg2: #0c1120;
-            --bg3: #131b2e;
-            --card: rgba(17,24,48,0.85);
-            --card2: rgba(22,31,56,0.9);
-            --border: rgba(59,130,246,0.12);
-            --border2: rgba(139,92,246,0.15);
-            --text: #e2e8f0;
-            --text2: #8b9dc3;
-            --text3: #4a5e82;
-            --green: #00e676;
-            --red: #ff3d5a;
-            --blue: #3b82f6;
-            --purple: #8b5cf6;
-            --orange: #ff9100;
-            --cyan: #00e5ff;
-            --gold: #ffd740;
-        }
-        * { margin:0; padding:0; box-sizing:border-box; }
-        body {
-            font-family: 'Inter', sans-serif;
-            background: var(--bg);
-            color: var(--text);
-            min-height: 100vh;
-            overflow-x: hidden;
-        }
-        body::before {
-            content:'';
-            position:fixed;
-            inset:0;
-            background:
-                radial-gradient(ellipse 800px 600px at 20% 30%, rgba(59,130,246,0.07) 0%, transparent 70%),
-                radial-gradient(ellipse 600px 800px at 80% 70%, rgba(139,92,246,0.06) 0%, transparent 70%),
-                radial-gradient(ellipse 500px 500px at 50% 50%, rgba(0,230,118,0.03) 0%, transparent 70%);
-            z-index:-1;
-            animation: bgShift 20s ease infinite alternate;
-        }
-        @keyframes bgShift {
-            0% { opacity: 0.8; }
-            100% { opacity: 1.2; }
-        }
-        .wrap { max-width:1400px; margin:0 auto; padding:12px; }
+        :root{--bg:#06080f;--bg2:#0c1120;--card:rgba(17,24,48,0.85);--border:rgba(59,130,246,0.12);--border2:rgba(139,92,246,0.15);--text:#e2e8f0;--text2:#8b9dc3;--text3:#4a5e82;--green:#00e676;--red:#ff3d5a;--blue:#3b82f6;--purple:#8b5cf6;--orange:#ff9100;--cyan:#00e5ff;--gold:#ffd740}
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+        body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse 800px 600px at 20% 30%,rgba(59,130,246,0.07) 0%,transparent 70%),radial-gradient(ellipse 600px 800px at 80% 70%,rgba(139,92,246,0.06) 0%,transparent 70%);z-index:-1}
+        .wrap{max-width:1400px;margin:0 auto;padding:12px}
+        .header{text-align:center;padding:16px 0 8px}
+        .logo{font-size:1.5rem;font-weight:900;letter-spacing:3px;background:linear-gradient(135deg,#3b82f6,#8b5cf6,#00e5ff);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+        .status-bar{display:flex;justify-content:center;gap:16px;margin-top:6px;font-size:0.72rem;color:var(--text3);flex-wrap:wrap}
+        .status-item{display:flex;align-items:center;gap:4px}
+        .dot{width:7px;height:7px;border-radius:50%;animation:pulse 2s infinite}
+        .dot.on{background:var(--green);box-shadow:0 0 10px rgba(0,230,118,0.5)}.dot.off{background:var(--red)}
+        @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
 
-        /* Header */
-        .header {
-            text-align:center;
-            padding:20px 0 10px;
-            position:relative;
-        }
-        .logo {
-            font-size:1.6rem;
-            font-weight:900;
-            letter-spacing:3px;
-            background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 40%, #00e5ff 100%);
-            -webkit-background-clip:text;
-            -webkit-text-fill-color:transparent;
-        }
-        .status-bar {
-            display:flex;
-            justify-content:center;
-            gap:20px;
-            margin-top:8px;
-            font-size:0.75rem;
-            color:var(--text3);
-            flex-wrap:wrap;
-        }
-        .status-item { display:flex; align-items:center; gap:5px; }
-        .dot {
-            width:7px; height:7px; border-radius:50%;
-            animation: pulse 2s infinite;
-        }
-        .dot.on { background:var(--green); box-shadow:0 0 10px rgba(0,230,118,0.5); }
-        .dot.off { background:var(--red); }
-        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+        /* Room selector */
+        .room-bar{display:flex;align-items:center;justify-content:center;gap:10px;margin:10px 0;padding:10px;background:var(--card);border:1px solid var(--border);border-radius:12px;flex-wrap:wrap}
+        .room-bar label{font-size:0.72rem;color:var(--text3);font-weight:600}
+        .room-bar input{background:var(--bg);border:1px solid var(--border);color:var(--text);padding:6px 12px;border-radius:8px;width:100px;font-family:'JetBrains Mono';font-size:0.8rem;text-align:center}
+        .room-bar button{background:linear-gradient(135deg,var(--blue),var(--purple));color:#fff;border:none;padding:6px 16px;border-radius:8px;font-size:0.72rem;font-weight:700;cursor:pointer;transition:all 0.3s}
+        .room-bar button:hover{transform:scale(1.05);box-shadow:0 0 15px rgba(59,130,246,0.3)}
+        .room-bar .current{font-family:'JetBrains Mono';color:var(--cyan);font-weight:700;font-size:0.85rem}
+        .room-bar .find-btn{background:linear-gradient(135deg,var(--orange),#e65100)}
+        #findStatus{font-size:0.7rem;color:var(--text3)}
 
-        /* === HERO: NEXT ROUND PREDICTION === */
-        .hero {
-            margin:16px 0;
-            background: linear-gradient(135deg, rgba(17,24,48,0.95), rgba(22,31,56,0.95));
-            border: 1px solid var(--border2);
-            border-radius:20px;
-            padding:28px;
-            position:relative;
-            overflow:hidden;
-        }
-        .hero::before {
-            content:'';
-            position:absolute;
-            top:-50%; right:-20%;
-            width:500px; height:500px;
-            background:radial-gradient(circle, rgba(139,92,246,0.08), transparent 70%);
-            border-radius:50%;
-        }
-        .hero::after {
-            content:'';
-            position:absolute;
-            bottom:-30%; left:-10%;
-            width:400px; height:400px;
-            background:radial-gradient(circle, rgba(59,130,246,0.06), transparent 70%);
-            border-radius:50%;
-        }
-        .hero-inner { position:relative; z-index:1; }
-        .hero-title {
-            text-align:center;
-            font-size:0.7rem;
-            font-weight:700;
-            text-transform:uppercase;
-            letter-spacing:3px;
-            color:var(--cyan);
-            margin-bottom:20px;
-        }
-        .hero-grid {
-            display:grid;
-            grid-template-columns: 200px 1fr 200px;
-            gap:24px;
-            align-items:center;
-        }
-        @media(max-width:900px) { .hero-grid { grid-template-columns:1fr; text-align:center; } }
+        /* Hero */
+        .hero{margin:12px 0;background:linear-gradient(135deg,rgba(17,24,48,0.95),rgba(22,31,56,0.95));border:1px solid var(--border2);border-radius:20px;padding:24px;position:relative;overflow:hidden}
+        .hero::before{content:'';position:absolute;top:-50%;right:-20%;width:500px;height:500px;background:radial-gradient(circle,rgba(139,92,246,0.08),transparent 70%);border-radius:50%}
+        .hero-inner{position:relative;z-index:1}
+        .hero-title{text-align:center;font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:3px;color:var(--cyan);margin-bottom:16px}
+        .hero-grid{display:grid;grid-template-columns:180px 1fr 180px;gap:20px;align-items:center}
+        @media(max-width:900px){.hero-grid{grid-template-columns:1fr;text-align:center}}
 
-        /* Signal box */
-        .signal-box { text-align:center; }
-        .signal-label {
-            font-size:0.65rem;
-            text-transform:uppercase;
-            letter-spacing:2px;
-            color:var(--text3);
-            margin-bottom:6px;
-        }
-        .signal-badge {
-            font-size:1.6rem;
-            font-weight:900;
-            padding:14px 20px;
-            border-radius:14px;
-            display:inline-block;
-            min-width:160px;
-            transition: all 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        }
-        .signal-badge.s0 { background:rgba(74,94,130,0.15); color:var(--text3); border:1px solid rgba(74,94,130,0.2); }
-        .signal-badge.s1 { background:rgba(255,145,0,0.1); color:var(--orange); border:1px solid rgba(255,145,0,0.25); }
-        .signal-badge.s2 { background:rgba(255,215,64,0.1); color:var(--gold); border:1px solid rgba(255,215,64,0.25); animation:glowGold 2s infinite; }
-        .signal-badge.s3 { background:rgba(0,230,118,0.12); color:var(--green); border:1px solid rgba(0,230,118,0.3); animation:glowGreen 1.5s infinite; }
-        @keyframes glowGold { 0%,100%{box-shadow:0 0 15px rgba(255,215,64,0.1)} 50%{box-shadow:0 0 30px rgba(255,215,64,0.25)} }
-        @keyframes glowGreen { 0%,100%{box-shadow:0 0 15px rgba(0,230,118,0.15)} 50%{box-shadow:0 0 35px rgba(0,230,118,0.35)} }
+        .signal-box{text-align:center}
+        .signal-label{font-size:0.62rem;text-transform:uppercase;letter-spacing:2px;color:var(--text3);margin-bottom:4px}
+        .signal-badge{font-size:1.4rem;font-weight:900;padding:12px 16px;border-radius:14px;display:inline-block;min-width:140px;transition:all 0.6s cubic-bezier(0.175,0.885,0.32,1.275)}
+        .signal-badge.s0{background:rgba(74,94,130,0.15);color:var(--text3);border:1px solid rgba(74,94,130,0.2)}
+        .signal-badge.s1{background:rgba(255,145,0,0.1);color:var(--orange);border:1px solid rgba(255,145,0,0.25)}
+        .signal-badge.s2{background:rgba(255,215,64,0.1);color:var(--gold);border:1px solid rgba(255,215,64,0.25);animation:glowG 2s infinite}
+        .signal-badge.s3{background:rgba(0,230,118,0.12);color:var(--green);border:1px solid rgba(0,230,118,0.3);animation:glowGr 1.5s infinite}
+        @keyframes glowG{0%,100%{box-shadow:0 0 15px rgba(255,215,64,0.1)}50%{box-shadow:0 0 30px rgba(255,215,64,0.25)}}
+        @keyframes glowGr{0%,100%{box-shadow:0 0 15px rgba(0,230,118,0.15)}50%{box-shadow:0 0 35px rgba(0,230,118,0.35)}}
 
-        /* Streak meter */
-        .streak-meter { text-align:center; }
-        .streak-num {
-            font-family:'JetBrains Mono';
-            font-size:3.5rem;
-            font-weight:800;
-            line-height:1;
-            transition: all 0.5s;
-        }
-        .streak-label { font-size:0.7rem; color:var(--text3); margin-top:4px; }
-        .streak-dots {
-            display:flex;
-            gap:4px;
-            justify-content:center;
-            margin-top:8px;
-        }
-        .streak-dot {
-            width:10px; height:10px;
-            border-radius:50%;
-            background:var(--bg);
-            border:1px solid var(--text3);
-            transition: all 0.3s;
-        }
-        .streak-dot.filled { background:var(--red); border-color:var(--red); box-shadow:0 0 6px rgba(255,61,90,0.4); }
-        .streak-dot.threshold { border-color:var(--green); }
+        .streak-meter{text-align:center}
+        .streak-num{font-family:'JetBrains Mono';font-size:3rem;font-weight:800;line-height:1}
+        .streak-label{font-size:0.68rem;color:var(--text3);margin-top:3px}
+        .streak-dots{display:flex;gap:3px;justify-content:center;margin-top:6px}
+        .streak-dot{width:9px;height:9px;border-radius:50%;background:var(--bg);border:1px solid var(--text3);transition:all 0.3s}
+        .streak-dot.filled{background:var(--red);border-color:var(--red);box-shadow:0 0 6px rgba(255,61,90,0.4)}
+        .streak-dot.threshold{border-color:var(--green)}
 
-        /* Probabilities */
-        .prob-grid {
-            display:grid;
-            grid-template-columns:1fr 1fr;
-            gap:12px;
-        }
-        .prob-card {
-            background:rgba(6,8,15,0.5);
-            border-radius:12px;
-            padding:14px;
-            text-align:center;
-            border:1px solid var(--border);
-            transition: all 0.5s;
-        }
-        .prob-card.hot { border-color:rgba(0,230,118,0.3); background:rgba(0,230,118,0.04); }
-        .prob-mult {
-            font-family:'JetBrains Mono';
-            font-weight:700;
-            font-size:0.8rem;
-            color:var(--text2);
-        }
-        .prob-pct {
-            font-family:'JetBrains Mono';
-            font-weight:800;
-            font-size:1.8rem;
-            line-height:1.1;
-            margin:4px 0;
-        }
-        .prob-bar-outer {
-            height:4px;
-            background:rgba(255,255,255,0.05);
-            border-radius:2px;
-            overflow:hidden;
-            margin-top:6px;
-        }
-        .prob-bar-inner {
-            height:100%;
-            border-radius:2px;
-            transition: width 1s ease;
-        }
-        .prob-raw { font-size:0.65rem; color:var(--text3); }
-        .confidence-badge {
-            display:inline-block;
-            font-size:0.6rem;
-            font-weight:700;
-            text-transform:uppercase;
-            letter-spacing:1px;
-            padding:3px 10px;
-            border-radius:20px;
-            margin-top:8px;
-        }
+        .prob-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+        .prob-card{background:rgba(6,8,15,0.5);border-radius:12px;padding:12px;text-align:center;border:1px solid var(--border);transition:all 0.5s}
+        .prob-card.hot{border-color:rgba(0,230,118,0.3);background:rgba(0,230,118,0.04)}
+        .prob-mult{font-family:'JetBrains Mono';font-weight:700;font-size:0.75rem;color:var(--text2)}
+        .prob-pct{font-family:'JetBrains Mono';font-weight:800;font-size:1.6rem;line-height:1.1;margin:3px 0}
+        .prob-bar-outer{height:3px;background:rgba(255,255,255,0.05);border-radius:2px;overflow:hidden;margin-top:4px}
+        .prob-bar-inner{height:100%;border-radius:2px;transition:width 1s}
+        .confidence-badge{display:inline-block;font-size:0.58rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;padding:2px 8px;border-radius:20px;margin-top:6px}
 
-        /* Results strip */
-        .results-section { margin:16px 0; }
-        .section-title {
-            font-size:0.65rem;
-            font-weight:700;
-            text-transform:uppercase;
-            letter-spacing:2px;
-            color:var(--text3);
-            margin-bottom:10px;
-            padding-left:4px;
-        }
-        .results-strip {
-            display:flex;
-            gap:6px;
-            overflow-x:auto;
-            padding:4px 0;
-            scrollbar-width:none;
-        }
-        .results-strip::-webkit-scrollbar { display:none; }
-        .chip {
-            font-family:'JetBrains Mono';
-            font-weight:700;
-            font-size:0.82rem;
-            padding:8px 14px;
-            border-radius:10px;
-            white-space:nowrap;
-            flex-shrink:0;
-            transition: all 0.4s;
-            cursor:default;
-            position:relative;
-        }
-        .chip.new { animation: chipIn 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
-        @keyframes chipIn { from { opacity:0; transform:scale(0.5) translateY(-15px); } to { opacity:1; transform:scale(1) translateY(0); } }
-        .chip.c1 { background:rgba(255,61,90,0.12); color:#ff6b81; border:1px solid rgba(255,61,90,0.25); }
-        .chip.c2 { background:rgba(255,145,0,0.1); color:#ffb74d; border:1px solid rgba(255,145,0,0.2); }
-        .chip.c3 { background:rgba(255,215,64,0.1); color:#ffd740; border:1px solid rgba(255,215,64,0.2); }
-        .chip.c4 { background:rgba(0,230,118,0.1); color:#69f0ae; border:1px solid rgba(0,230,118,0.2); }
-        .chip.c5 { background:rgba(0,229,255,0.1); color:#18ffff; border:1px solid rgba(0,229,255,0.25); }
-        .chip.c6 { background:rgba(139,92,246,0.12); color:#b388ff; border:1px solid rgba(139,92,246,0.3); box-shadow:0 0 12px rgba(139,92,246,0.15); }
+        .results-section{margin:12px 0}
+        .section-title{font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:var(--text3);margin-bottom:8px;padding-left:4px}
+        .results-strip{display:flex;gap:5px;overflow-x:auto;padding:3px 0;scrollbar-width:none}
+        .results-strip::-webkit-scrollbar{display:none}
+        .chip{font-family:'JetBrains Mono';font-weight:700;font-size:0.78rem;padding:7px 12px;border-radius:10px;white-space:nowrap;flex-shrink:0;transition:all 0.4s;cursor:default}
+        .chip.new{animation:chipIn 0.6s cubic-bezier(0.175,0.885,0.32,1.275)}
+        @keyframes chipIn{from{opacity:0;transform:scale(0.5) translateY(-15px)}to{opacity:1;transform:scale(1) translateY(0)}}
+        .chip.c1{background:rgba(255,61,90,0.12);color:#ff6b81;border:1px solid rgba(255,61,90,0.25)}
+        .chip.c2{background:rgba(255,145,0,0.1);color:#ffb74d;border:1px solid rgba(255,145,0,0.2)}
+        .chip.c3{background:rgba(255,215,64,0.1);color:#ffd740;border:1px solid rgba(255,215,64,0.2)}
+        .chip.c4{background:rgba(0,230,118,0.1);color:#69f0ae;border:1px solid rgba(0,230,118,0.2)}
+        .chip.c5{background:rgba(0,229,255,0.1);color:#18ffff;border:1px solid rgba(0,229,255,0.25)}
+        .chip.c6{background:rgba(139,92,246,0.12);color:#b388ff;border:1px solid rgba(139,92,246,0.3);box-shadow:0 0 12px rgba(139,92,246,0.15)}
 
-        /* Grid */
-        .grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px; }
-        @media(max-width:1024px) { .grid { grid-template-columns:1fr 1fr; } }
-        @media(max-width:640px) { .grid { grid-template-columns:1fr; } }
-        .card {
-            background:var(--card);
-            border:1px solid var(--border);
-            border-radius:16px;
-            padding:18px;
-            backdrop-filter:blur(10px);
-            transition: all 0.3s;
-        }
-        .card:hover { border-color:rgba(59,130,246,0.25); transform:translateY(-1px); }
-        .card-title {
-            font-size:0.65rem;
-            font-weight:700;
-            text-transform:uppercase;
-            letter-spacing:2px;
-            color:var(--text3);
-            margin-bottom:14px;
-        }
-        .card.full { grid-column:1/-1; }
-
-        /* Stats */
-        .stats-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; }
-        @media(max-width:640px) { .stats-grid { grid-template-columns:1fr 1fr; } }
-        .stat { text-align:center; }
-        .stat-val {
-            font-family:'JetBrains Mono';
-            font-size:1.6rem;
-            font-weight:800;
-            line-height:1;
-        }
-        .stat-label { font-size:0.7rem; color:var(--text3); margin-top:3px; }
-
-        /* Distribution */
-        .dist-row { display:flex; align-items:center; gap:8px; margin-bottom:5px; }
-        .dist-label { font-size:0.68rem; color:var(--text3); width:65px; text-align:right; }
-        .dist-bar-bg { flex:1; height:16px; background:var(--bg); border-radius:3px; overflow:hidden; }
-        .dist-bar { height:100%; border-radius:3px; transition:width 1s; }
-        .dist-pct { font-family:'JetBrains Mono'; font-size:0.68rem; color:var(--text3); width:40px; }
-
-        /* Tables */
-        .tbl { width:100%; border-collapse:collapse; }
-        .tbl th,.tbl td { padding:7px 5px; text-align:left; font-size:0.75rem; border-bottom:1px solid rgba(255,255,255,0.04); }
-        .tbl th { color:var(--text3); font-weight:600; font-size:0.65rem; text-transform:uppercase; }
-        .tbl .hl { color:var(--green); font-weight:700; }
-        .tbl .warn { color:var(--orange); }
-
-        /* Streak analysis */
-        .streak-item {
-            background:var(--bg);
-            border-radius:10px;
-            padding:10px 14px;
-            margin-bottom:6px;
-            border-left:3px solid var(--border);
-            display:flex;
-            justify-content:space-between;
-            align-items:center;
-        }
-        .streak-item.hot { border-left-color:var(--green); background:rgba(0,230,118,0.03); }
-
-        /* Progress */
-        .prog-row { display:flex; align-items:center; gap:10px; margin-bottom:8px; }
-        .prog-name { font-size:0.75rem; color:var(--text2); width:110px; }
-        .prog-bar-bg { flex:1; height:6px; background:var(--bg); border-radius:3px; overflow:hidden; }
-        .prog-bar { height:100%; background:linear-gradient(90deg,var(--blue),var(--purple)); border-radius:3px; transition:width 2s; }
-        .prog-pct { font-family:'JetBrains Mono'; font-size:0.7rem; color:var(--text3); width:55px; text-align:right; }
-
-        .footer { text-align:center; padding:25px; color:var(--text3); font-size:0.65rem; }
-
-        /* Sound effect for signals */
-        .flash { animation: flash 0.5s; }
-        @keyframes flash { 0%,100%{opacity:1} 50%{opacity:0.3} }
+        .grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+        @media(max-width:1024px){.grid{grid-template-columns:1fr 1fr}}
+        @media(max-width:640px){.grid{grid-template-columns:1fr}}
+        .card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px;backdrop-filter:blur(10px);transition:all 0.3s}
+        .card:hover{border-color:rgba(59,130,246,0.25);transform:translateY(-1px)}
+        .card-title{font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:var(--text3);margin-bottom:12px}
+        .card.full{grid-column:1/-1}
+        .stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+        @media(max-width:640px){.stats-grid{grid-template-columns:1fr 1fr}}
+        .stat{text-align:center}
+        .stat-val{font-family:'JetBrains Mono';font-size:1.4rem;font-weight:800;line-height:1}
+        .stat-label{font-size:0.68rem;color:var(--text3);margin-top:2px}
+        .dist-row{display:flex;align-items:center;gap:6px;margin-bottom:4px}
+        .dist-label{font-size:0.65rem;color:var(--text3);width:60px;text-align:right}
+        .dist-bar-bg{flex:1;height:14px;background:var(--bg);border-radius:3px;overflow:hidden}
+        .dist-bar{height:100%;border-radius:3px;transition:width 1s}
+        .dist-pct{font-family:'JetBrains Mono';font-size:0.65rem;color:var(--text3);width:38px}
+        .tbl{width:100%;border-collapse:collapse}
+        .tbl th,.tbl td{padding:6px 4px;text-align:left;font-size:0.72rem;border-bottom:1px solid rgba(255,255,255,0.04)}
+        .tbl th{color:var(--text3);font-weight:600;font-size:0.62rem;text-transform:uppercase}
+        .tbl .hl{color:var(--green);font-weight:700}.tbl .warn{color:var(--orange)}
+        .streak-item{background:var(--bg);border-radius:10px;padding:8px 12px;margin-bottom:5px;border-left:3px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+        .streak-item.hot{border-left-color:var(--green);background:rgba(0,230,118,0.03)}
+        .prog-row{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+        .prog-name{font-size:0.72rem;color:var(--text2);width:100px}
+        .prog-bar-bg{flex:1;height:5px;background:var(--bg);border-radius:3px;overflow:hidden}
+        .prog-bar{height:100%;background:linear-gradient(90deg,var(--blue),var(--purple));border-radius:3px;transition:width 2s}
+        .prog-pct{font-family:'JetBrains Mono';font-size:0.68rem;color:var(--text3);width:50px;text-align:right}
+        .footer{text-align:center;padding:20px;color:var(--text3);font-size:0.62rem}
+        .flash{animation:flash 0.5s}
+        @keyframes flash{0%,100%{opacity:1}50%{opacity:0.3}}
+        @keyframes spin{to{transform:rotate(360deg)}}
     </style>
 </head>
 <body>
@@ -352,205 +119,104 @@
         <div class="status-bar">
             <div class="status-item"><div class="dot" id="dot"></div><span id="connStatus">Connexion...</span></div>
             <div class="status-item"><strong id="totalCount">-</strong>&nbsp;rounds</div>
+            <div class="status-item">Salle:&nbsp;<strong id="roomId">-</strong></div>
             <div class="status-item">MAJ:&nbsp;<span id="lastUpdate">-</span></div>
         </div>
     </div>
 
+    <div class="room-bar">
+        <label>SALLE :</label>
+        <span class="current" id="roomDisplay">-</span>
+        <input type="number" id="roomInput" placeholder="gr=..." min="1" max="999">
+        <button onclick="changeRoom()">Changer</button>
+        <span style="color:var(--text3);font-size:0.7rem">|</span>
+        <label>Trouver ma salle :</label>
+        <input type="text" id="findInput" placeholder="ex: 1.5,2.3,1.1" style="width:150px">
+        <button class="find-btn" onclick="findRoom()">Chercher</button>
+        <span id="findStatus"></span>
+    </div>
+
     <div id="app">
-        <div style="text-align:center;padding:60px;color:var(--text3)">
-            <div style="width:36px;height:36px;border:3px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 12px"></div>
-            Connexion a Firebase...
+        <div style="text-align:center;padding:50px;color:var(--text3)">
+            <div style="width:32px;height:32px;border:3px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 10px"></div>
+            Chargement...
         </div>
     </div>
 </div>
-
-<style>@keyframes spin{to{transform:rotate(360deg)}}</style>
 
 <script>
 const FB = "https://xbet-8a511-default-rtdb.europe-west1.firebasedatabase.app";
 let live = null, stats = null, prevResult = null;
 
-function chipClass(m) {
-    if(m<=1.1) return 'c1';
-    if(m<1.5) return 'c2';
-    if(m<2) return 'c3';
-    if(m<5) return 'c4';
-    if(m<10) return 'c5';
-    return 'c6';
-}
-function sigClass(s) { return 's'+(s||0); }
-function ago(s) {
-    if(!s) return '-';
-    const d=(Date.now()-new Date(s).getTime())/1000;
-    if(d<3) return 'instant';
-    if(d<60) return Math.floor(d)+'s';
-    if(d<3600) return Math.floor(d/60)+'min';
-    return Math.floor(d/3600)+'h';
-}
-function confBadge(c) {
-    const cols = {FAIBLE:'rgba(255,61,90,0.15);color:#ff6b81',MOYENNE:'rgba(255,145,0,0.12);color:#ffb74d',BONNE:'rgba(255,215,64,0.12);color:#ffd740',FORTE:'rgba(0,230,118,0.12);color:#69f0ae'};
-    return `<span class="confidence-badge" style="background:${(cols[c]||cols.FAIBLE).split(';')[0]};${(cols[c]||cols.FAIBLE).split(';')[1]}">${c||'?'}</span>`;
+function chipClass(m){if(m<=1.1)return'c1';if(m<1.5)return'c2';if(m<2)return'c3';if(m<5)return'c4';if(m<10)return'c5';return'c6'}
+function ago(s){if(!s)return'-';const d=(Date.now()-new Date(s).getTime())/1000;if(d<3)return'instant';if(d<60)return Math.floor(d)+'s';if(d<3600)return Math.floor(d/60)+'min';return Math.floor(d/3600)+'h'}
+function confBadge(c){const cols={FAIBLE:'rgba(255,61,90,0.15);color:#ff6b81',MOYENNE:'rgba(255,145,0,0.12);color:#ffb74d',BONNE:'rgba(255,215,64,0.12);color:#ffd740',FORTE:'rgba(0,230,118,0.12);color:#69f0ae'};const s=(cols[c]||cols.FAIBLE);return`<span class="confidence-badge" style="background:${s.split(';')[0]};${s.split(';')[1]}">${c||'?'}</span>`}
+
+async function changeRoom(){
+    const gr=document.getElementById('roomInput').value;
+    if(!gr)return;
+    document.getElementById('findStatus').textContent='Changement...';
+    try{const r=await fetch(FB.replace('firebasedatabase.app','firebasedatabase.app')+'/config/room.json',{method:'PUT',body:gr});
+    // Also try local API if running
+    try{await fetch('/setroom?gr='+gr)}catch(e){}
+    document.getElementById('findStatus').textContent='Salle changee: gr='+gr;
+    }catch(e){document.getElementById('findStatus').textContent='Erreur'}
 }
 
-async function fetchData() {
-    try {
-        const [liveRes, statsRes] = await Promise.all([
-            fetch(FB + '/live.json').then(r => r.json()),
-            fetch(FB + '/stats.json').then(r => r.json())
-        ]);
-        live = liveRes;
-        stats = statsRes;
-        render();
-    } catch(e) {
-        console.error('Fetch error:', e);
-    }
+async function findRoom(){
+    const r=document.getElementById('findInput').value.trim();
+    if(!r){document.getElementById('findStatus').textContent='Entre tes derniers resultats';return}
+    document.getElementById('findStatus').textContent='Recherche en cours...';
+    try{const res=await fetch('/find?r='+r);const data=await res.json();
+    if(data.found){document.getElementById('findStatus').innerHTML='<span style="color:var(--green)">Trouve! Salle gr='+data.room+'</span>';
+    document.getElementById('roomInput').value=data.room;
+    }else{document.getElementById('findStatus').innerHTML='<span style="color:var(--red)">Non trouve. Reessaie avec d\'autres resultats</span>'}
+    }catch(e){document.getElementById('findStatus').textContent='Erreur - le collecteur doit tourner localement'}
 }
 
-function render() {
-    if(!live && !stats) return;
-    const l = live||{};
-    const s = stats||{};
-    const last = l.last_20 || l.last_10 || s?.current?.last_10 || [];
-    const streak = l.streak ?? s?.current?.low_streak ?? 0;
-    const tip = l.tip || s?.current?.tip || 'ATTENDRE';
-    const sig = l.signal || 0;
-    const total = l.total || s?.count || 0;
-    const pred = l.prediction || {};
-    const isNew = prevResult !== l.result;
-    prevResult = l.result;
-
-    document.getElementById('dot').className = 'dot on';
-    document.getElementById('connStatus').textContent = 'En ligne';
-    document.getElementById('totalCount').textContent = total;
-    document.getElementById('lastUpdate').textContent = ago(l.updated || s?.updated_at);
-
-    let h = '';
-
-    // === HERO ===
-    h += `<div class="hero"><div class="hero-inner">
-        <div class="hero-title">&#x1F52E; Prediction prochain round</div>
-        <div class="hero-grid">
-            <div class="streak-meter">
-                <div class="streak-num" style="color:${streak>=5?'var(--green)':streak>=3?'var(--gold)':'var(--text3)'}">${streak}</div>
-                <div class="streak-label">crashs bas<br>consecutifs</div>
-                <div class="streak-dots">
-                    ${Array.from({length:8},(_, i)=>`<div class="streak-dot ${i<streak?'filled':''} ${i===2||i===4?'threshold':''}"></div>`).join('')}
-                </div>
-            </div>
-            <div class="prob-grid">
-                ${[['2x',pred.p2x,'#3b82f6'],['3x',Math.round((pred.p2x||0)*0.65),'#8b5cf6'],['5x',pred.p5x,'#ff9100'],['10x',pred.p10x,'#00e676']].map(([lbl,pct,col])=>`
-                <div class="prob-card ${(pct||0)>55?'hot':''}">
-                    <div class="prob-mult">&ge; ${lbl}</div>
-                    <div class="prob-pct" style="color:${col}">${Math.round(pct||0)}%</div>
-                    <div class="prob-bar-outer"><div class="prob-bar-inner" style="width:${pct||0}%;background:${col}"></div></div>
-                </div>`).join('')}
-            </div>
-            <div class="signal-box">
-                <div class="signal-label">Signal</div>
-                <div class="signal-badge ${sigClass(sig)} ${isNew?'flash':''}">${tip}</div>
-                ${confBadge(pred.confidence)}
-                <div style="margin-top:8px;font-size:0.7rem;color:var(--text3)">Moy. 100: <strong style="color:var(--text)">${(pred.avg_100||0).toFixed(1)}x</strong></div>
-            </div>
-        </div>
-    </div></div>`;
-
-    // === RESULTS ===
-    h += `<div class="results-section">
-        <div class="section-title">Historique des resultats</div>
-        <div class="results-strip">
-            ${last.map((m,i)=>`<div class="chip ${chipClass(m)} ${i===last.length-1&&isNew?'new':''}">${m.toFixed(2)}x</div>`).join('')}
-        </div>
-    </div>`;
-
-    h += '<div class="grid">';
-
-    // === STATS ===
-    if(s.mean) {
-        h += `<div class="card full">
-            <div class="stats-grid">
-                <div class="stat"><div class="stat-val" style="color:var(--blue)">${s.mean}x</div><div class="stat-label">Moyenne</div></div>
-                <div class="stat"><div class="stat-val" style="color:var(--purple)">${s.median}x</div><div class="stat-label">Mediane</div></div>
-                <div class="stat"><div class="stat-val" style="color:var(--red)">${s.min}x</div><div class="stat-label">Min</div></div>
-                <div class="stat"><div class="stat-val" style="color:var(--green)">${s.max}x</div><div class="stat-label">Max</div></div>
-            </div>
-        </div>`;
-    }
-
-    // === SURVIVAL ===
-    if(s.survival) {
-        h += `<div class="card"><div class="card-title">Probabilites de survie</div>`;
-        [['&ge; 2x','gte_2.0x','#3b82f6'],['&ge; 3x','gte_3.0x','#8b5cf6'],['&ge; 5x','gte_5.0x','#ff9100'],['&ge; 10x','gte_10.0x','#00e676'],['&ge; 20x','gte_20.0x','#00e5ff']].forEach(([lbl,key,col])=>{
-            const v = s.survival[key]||0;
-            h += `<div class="dist-row"><div class="dist-label">${lbl}</div><div class="dist-bar-bg"><div class="dist-bar" style="width:${v}%;background:${col}"></div></div><div class="dist-pct">${v}%</div></div>`;
-        });
-        h += '</div>';
-    }
-
-    // === DISTRIBUTION ===
-    if(s.distribution) {
-        const d=s.distribution, cols=['#ff3d5a','#ff6b81','#ffb74d','#ffd740','#69f0ae','#18ffff','#b388ff','#ea80fc'];
-        const names={instant:'1.0-1.2x',tres_bas:'1.2-1.5x',bas:'1.5-2.0x',moyen:'2.0-3.0x',haut:'3.0-5.0x',eleve:'5-10x',rare:'10-50x',mega:'50x+'};
-        h += `<div class="card"><div class="card-title">Distribution</div>`;
-        let i=0;
-        for(const[k,v] of Object.entries(d)) {
-            h += `<div class="dist-row"><div class="dist-label">${names[k]||k}</div><div class="dist-bar-bg"><div class="dist-bar" style="width:${v.pct}%;background:${cols[i]}"></div></div><div class="dist-pct">${v.pct}%</div></div>`;
-            i++;
-        }
-        h += '</div>';
-    }
-
-    // === CORRELATIONS ===
-    if(s.correlations && Object.keys(s.correlations).length) {
-        const labels={after_lt_1_5x:'Apres &lt;1.5x',after_lt_2x:'Apres &lt;2x',after_gt_5x:'Apres &gt;5x',after_gt_10x:'Apres &gt;10x'};
-        h += `<div class="card"><div class="card-title">Correlations</div><table class="tbl"><tr><th>Condition</th><th>Cas</th><th>Moy</th><th>&ge;2x</th><th>&ge;5x</th></tr>`;
-        for(const[k,v] of Object.entries(s.correlations)) {
-            h += `<tr><td>${labels[k]||k}</td><td>${v.cases}</td><td>${v.mean}x</td><td class="${v.p_2x>55?'hl':''}">${v.p_2x}%</td><td class="${v.p_5x>25?'warn':''}">${v.p_5x}%</td></tr>`;
-        }
-        h += '</table></div>';
-    }
-
-    // === STREAKS ===
-    if(s.streaks && Object.keys(s.streaks).length) {
-        h += `<div class="card"><div class="card-title">Analyse des series</div>`;
-        for(const[k,v] of Object.entries(s.streaks)) {
-            const n = k.match(/\d+/)?.[0]||'?';
-            h += `<div class="streak-item ${v.interesting?'hot':''}"><div><strong>${n} crash &lt;2x</strong><br><span style="font-size:0.7rem;color:var(--text3)">${v.cases} cas</span></div><div style="text-align:right"><span style="font-family:JetBrains Mono;font-weight:700;color:${v.interesting?'var(--green)':'var(--text)'}">${v.mean}x</span><br><span style="font-size:0.7rem;color:${v.vs_global>0?'var(--green)':'var(--red)'}">${v.vs_global>0?'+':''}${v.vs_global}%</span></div></div>`;
-        }
-        h += '</div>';
-    }
-
-    // === AUTOCORRELATION ===
-    if(s.autocorrelation) {
-        h += `<div class="card"><div class="card-title">Auto-correlation</div><table class="tbl"><tr><th>Lag</th><th>r</th><th>Signal</th></tr>`;
-        for(const[k,v] of Object.entries(s.autocorrelation)) {
-            h += `<tr><td>${k.replace('lag_','Lag ')}</td><td style="font-family:JetBrains Mono">${v.r>0?'+':''}${v.r}</td><td>${v.signal?'<span class="warn">&#9888; Signal</span>':'<span style="color:var(--text3)">Aleatoire</span>'}</td></tr>`;
-        }
-        h += '</table></div>';
-    }
-
-    // === PROGRESS ===
-    if(s.progress) {
-        const names={basic:'Stats base',correlations:'Correlations',patterns:'Patterns',predictions:'Predictions'};
-        h += `<div class="card full"><div class="card-title">Progression</div>`;
-        for(const[k,v] of Object.entries(s.progress)) {
-            const p = Math.min(100,(v.current/v.target)*100);
-            h += `<div class="prog-row"><div class="prog-name">${v.done?'&#9989;':'&#9203;'} ${names[k]||k}</div><div class="prog-bar-bg"><div class="prog-bar" style="width:${p}%"></div></div><div class="prog-pct">${v.current}/${v.target}</div></div>`;
-        }
-        h += '</div>';
-    }
-
-    h += '</div>';
-    h += `<div class="footer">Donnees temps reel via WebSocket &bull; Firebase REST API &bull; Auto-refresh 5s</div>`;
-    document.getElementById('app').innerHTML = h;
+async function fetchData(){
+    try{
+        const[lR,sR]=await Promise.all([fetch(FB+'/live.json').then(r=>r.json()),fetch(FB+'/stats.json').then(r=>r.json())]);
+        live=lR;stats=sR;render();
+    }catch(e){console.error(e)}
 }
 
-// Initial fetch + auto-refresh every 5 seconds
+function render(){
+    if(!live&&!stats)return;
+    const l=live||{},s=stats||{},last=l.last_20||l.last_10||[],streak=l.streak??0,tip=l.tip||'ATTENDRE',sig=l.signal||0,total=l.total||s?.count||0,pred=l.prediction||{},isNew=prevResult!==l.result;
+    prevResult=l.result;
+    document.getElementById('dot').className='dot '+(l.connected?'on':'off');
+    document.getElementById('connStatus').textContent=l.connected?'En ligne':'Hors ligne';
+    document.getElementById('totalCount').textContent=total;
+    document.getElementById('roomId').textContent='gr='+(l.room||'?');
+    document.getElementById('roomDisplay').textContent='gr='+(l.room||'?');
+    document.getElementById('lastUpdate').textContent=ago(l.updated||s?.updated_at);
+
+    let h='';
+    // HERO
+    h+=`<div class="hero"><div class="hero-inner"><div class="hero-title">&#x1F52E; Prediction prochain round</div><div class="hero-grid">
+    <div class="streak-meter"><div class="streak-num" style="color:${streak>=5?'var(--green)':streak>=3?'var(--gold)':'var(--text3)'}">${streak}</div><div class="streak-label">crashs bas<br>consecutifs</div><div class="streak-dots">${Array.from({length:8},(_,i)=>`<div class="streak-dot ${i<streak?'filled':''} ${i===2||i===4?'threshold':''}"></div>`).join('')}</div></div>
+    <div class="prob-grid">${[['2x',pred.p2x,'#3b82f6'],['3x',Math.round((pred.p2x||0)*0.65),'#8b5cf6'],['5x',pred.p5x,'#ff9100'],['10x',pred.p10x,'#00e676']].map(([lbl,pct,col])=>`<div class="prob-card ${(pct||0)>55?'hot':''}"><div class="prob-mult">&ge; ${lbl}</div><div class="prob-pct" style="color:${col}">${Math.round(pct||0)}%</div><div class="prob-bar-outer"><div class="prob-bar-inner" style="width:${pct||0}%;background:${col}"></div></div></div>`).join('')}</div>
+    <div class="signal-box"><div class="signal-label">Signal</div><div class="signal-badge s${sig} ${isNew?'flash':''}">${tip}</div>${confBadge(pred.confidence)}<div style="margin-top:6px;font-size:0.68rem;color:var(--text3)">Moy.100: <strong style="color:var(--text)">${(pred.avg_100||0).toFixed(1)}x</strong></div></div>
+    </div></div></div>`;
+    // RESULTS
+    h+=`<div class="results-section"><div class="section-title">Historique (salle gr=${l.room||'?'})</div><div class="results-strip">${last.map((m,i)=>`<div class="chip ${chipClass(m)} ${i===last.length-1&&isNew?'new':''}">${m.toFixed(2)}x</div>`).join('')}</div></div>`;
+    h+='<div class="grid">';
+    if(s.mean){h+=`<div class="card full"><div class="stats-grid"><div class="stat"><div class="stat-val" style="color:var(--blue)">${s.mean}x</div><div class="stat-label">Moyenne</div></div><div class="stat"><div class="stat-val" style="color:var(--purple)">${s.median}x</div><div class="stat-label">Mediane</div></div><div class="stat"><div class="stat-val" style="color:var(--red)">${s.min}x</div><div class="stat-label">Min</div></div><div class="stat"><div class="stat-val" style="color:var(--green)">${s.max}x</div><div class="stat-label">Max</div></div></div></div>`}
+    if(s.survival){h+=`<div class="card"><div class="card-title">Survie</div>`;[['&ge;2x','gte_2.0x','#3b82f6'],['&ge;3x','gte_3.0x','#8b5cf6'],['&ge;5x','gte_5.0x','#ff9100'],['&ge;10x','gte_10.0x','#00e676'],['&ge;20x','gte_20.0x','#00e5ff']].forEach(([l,k,c])=>{const v=s.survival[k]||0;h+=`<div class="dist-row"><div class="dist-label">${l}</div><div class="dist-bar-bg"><div class="dist-bar" style="width:${v}%;background:${c}"></div></div><div class="dist-pct">${v}%</div></div>`});h+='</div>'}
+    if(s.distribution){const d=s.distribution,cols=['#ff3d5a','#ff6b81','#ffb74d','#ffd740','#69f0ae','#18ffff','#b388ff','#ea80fc'],names={instant:'1.0-1.2x',tres_bas:'1.2-1.5x',bas:'1.5-2.0x',moyen:'2.0-3.0x',haut:'3.0-5.0x',eleve:'5-10x',rare:'10-50x',mega:'50x+'};h+=`<div class="card"><div class="card-title">Distribution</div>`;let i=0;for(const[k,v]of Object.entries(d)){h+=`<div class="dist-row"><div class="dist-label">${names[k]||k}</div><div class="dist-bar-bg"><div class="dist-bar" style="width:${v.pct}%;background:${cols[i]}"></div></div><div class="dist-pct">${v.pct}%</div></div>`;i++}h+='</div>'}
+    if(s.correlations&&Object.keys(s.correlations).length){const labels={after_lt_1_5x:'Apres &lt;1.5x',after_lt_2x:'Apres &lt;2x',after_gt_5x:'Apres &gt;5x',after_gt_10x:'Apres &gt;10x'};h+=`<div class="card"><div class="card-title">Correlations</div><table class="tbl"><tr><th>Condition</th><th>Cas</th><th>Moy</th><th>&ge;2x</th><th>&ge;5x</th></tr>`;for(const[k,v]of Object.entries(s.correlations)){h+=`<tr><td>${labels[k]||k}</td><td>${v.cases}</td><td>${v.mean}x</td><td class="${v.p_2x>55?'hl':''}">${v.p_2x}%</td><td class="${v.p_5x>25?'warn':''}">${v.p_5x}%</td></tr>`}h+='</table></div>'}
+    if(s.streaks&&Object.keys(s.streaks).length){h+=`<div class="card"><div class="card-title">Series</div>`;for(const[k,v]of Object.entries(s.streaks)){const n=k.match(/\d+/)?.[0]||'?';h+=`<div class="streak-item ${v.interesting?'hot':''}"><div><strong>${n} crash &lt;2x</strong><br><span style="font-size:0.68rem;color:var(--text3)">${v.cases} cas</span></div><div style="text-align:right"><span style="font-family:JetBrains Mono;font-weight:700;color:${v.interesting?'var(--green)':'var(--text)'}">${v.mean}x</span><br><span style="font-size:0.68rem;color:${v.vs_global>0?'var(--green)':'var(--red)'}">${v.vs_global>0?'+':''}${v.vs_global}%</span></div></div>`}h+='</div>'}
+    if(s.autocorrelation){h+=`<div class="card"><div class="card-title">Auto-corr.</div><table class="tbl"><tr><th>Lag</th><th>r</th><th>Signal</th></tr>`;for(const[k,v]of Object.entries(s.autocorrelation)){h+=`<tr><td>${k.replace('lag_','Lag ')}</td><td style="font-family:JetBrains Mono">${v.r>0?'+':''}${v.r}</td><td>${v.signal?'<span class="warn">&#9888; Signal</span>':'<span style="color:var(--text3)">Aleatoire</span>'}</td></tr>`}h+='</table></div>'}
+    if(s.progress){const names={basic:'Stats base',correlations:'Correlations',patterns:'Patterns',predictions:'Predictions'};h+=`<div class="card full"><div class="card-title">Progression</div>`;for(const[k,v]of Object.entries(s.progress)){const p=Math.min(100,(v.current/v.target)*100);h+=`<div class="prog-row"><div class="prog-name">${v.done?'&#9989;':'&#9203;'} ${names[k]||k}</div><div class="prog-bar-bg"><div class="prog-bar" style="width:${p}%"></div></div><div class="prog-pct">${v.current}/${v.target}</div></div>`}h+='</div>'}
+    h+='</div>';
+    h+=`<div class="footer">Crash Predictor &bull; Firebase REST API &bull; Auto-refresh 5s &bull; Salle gr=${l.room||'?'}</div>`;
+    document.getElementById('app').innerHTML=h;
+}
+
 fetchData();
-setInterval(fetchData, 5000);
-setInterval(()=>{
-    const el=document.getElementById('lastUpdate');
-    if(el && live?.updated) el.textContent=ago(live.updated);
-}, 3000);
+setInterval(fetchData,5000);
+setInterval(()=>{const el=document.getElementById('lastUpdate');if(el&&live?.updated)el.textContent=ago(live.updated)},3000);
 </script>
 </body>
 </html>
