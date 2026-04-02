@@ -404,15 +404,26 @@ class Collector:
                     }) + "\x1e")
                     self.log("Guest OK")
 
+                    async def ping_task():
+                        while self.running and not self._switch_event.is_set() and self.connected:
+                            await asyncio.sleep(10)
+                            try:
+                                await ws.send(json.dumps({"type": 6}) + "\x1e")
+                            except:
+                                break
+                    
+                    p_task = asyncio.create_task(ping_task())
+
                     while self.running and not self._switch_event.is_set():
                         try:
-                            msg = await asyncio.wait_for(ws.recv(), timeout=30)
+                            msg = await asyncio.wait_for(ws.recv(), timeout=35)
                             self._process(msg)
                         except asyncio.TimeoutError:
-                            await ws.send(json.dumps({"type": 6}) + "\x1e")
+                            self.log("Timeout serveur sans data, tentative de maintien...")
                         except websockets.exceptions.ConnectionClosed:
                             self.log("Deconnecte")
                             break
+                    p_task.cancel()
 
                 self.connected = False
                 if self._switch_event.is_set():
