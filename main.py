@@ -317,6 +317,7 @@ class Collector:
         self.current_cashouts = []
         self.round_count = self.db.count()
         self.start_time = datetime.utcnow()
+        self.loop = asyncio.get_event_loop()
         self._switch_event = asyncio.Event()
 
         config = load_config()
@@ -332,8 +333,9 @@ class Collector:
     def switch_room(self, new_gr):
         self.log(f"Changement de salle: gr={self.room_id} -> gr={new_gr}")
         self.room_id = new_gr
+        self.last_10.clear() # Clear specific room history
         save_config({"room": new_gr})
-        self._switch_event.set()
+        self.loop.call_soon_threadsafe(self._switch_event.set)
 
     def get_live(self):
         last_100 = self.db.get_last(min(100, self.round_count))
