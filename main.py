@@ -65,6 +65,9 @@ class Firebase:
     def update_live(self, data):
         self._send("live", data)
 
+    def update_multi(self, data):
+        self._send("multi", data)
+
     def update_stats(self, data):
         self._send("stats", data)
 
@@ -306,25 +309,68 @@ class Handler(BaseHTTPRequestHandler):
 
 
 # ========== COLLECTOR ==========
+class RoomWorker:
+    def __init__(self, gr, collector):
+        self.gr = gr
+        self.collector = collector
+        self.last_results = deque(maxlen=10)
+        self.connected = False
+        self.updated_at = None
+
+    async def run(self):
+        headers = {"User-Agent": "Mozilla/5.0", "Origin": "https://1xbet.com"}
+        while self.collector.running:
+            try:
+                url = WS_BASE.format(self.gr)
+                async with websockets.connect(url, additional_headers=headers, open_timeout=20) as ws:
+                    self.connected = True
+                    await ws.send(json.dumps({"protocol": "json", "version": 1}) + "\x1e")
+                    await ws.recv()
+                    await ws.send(json.dumps({
+                        "arguments": [{"activity": 30, "currency": 27}],
+                        "invocationId": "0", "target": "Guest", "type": 1
+                    }) + "\x1e")
+
+                    while self.collector.running:
+                        msg = await asyncio.wait_for(ws.recv(), timeout=40)
+                        for part in msg.split("\x1e"):
+                            if not part.strip(): continue
+                            try:
+                                d = json.loads(part)
+                                if d.get("target") == "OnRegistration":
+                                    for h in reversed(d["arguments"][0].get("fs", [])):
+                                        self.last_results.append(h.get("f", 0))
+                                    self.updated_at = datetime.utcnow().isoformat()
+                                elif d.get("target") == "OnCrash":
+                                    self.last_results.append(d["arguments"][0].get("f", 0))
+                                    self.updated_at = datetime.utcnow().isoformat()
+                                    if self.gr == self.collector.room_id:
+                                        self.collector.process_main_crash(d["arguments"][0])
+                            except: pass
+            except:
+                self.connected = False
+                await asyncio.sleep(5)
+
 class Collector:
     def __init__(self):
         self.db = DB()
         self.firebase = Firebase(FIREBASE_URL)
         self.analyzer = Analyzer(self.db)
         self.running = True
-        self.connected = False
-        self.last_10 = deque(maxlen=10)
         self.current_cashouts = []
         self.round_count = self.db.count()
-        self.start_time = datetime.utcnow()
         self.loop = asyncio.get_event_loop()
         self._switch_event = asyncio.Event()
 
         config = load_config()
         self.room_id = config.get("room", DEFAULT_ROOM)
+        
+        # Room Workers
+        self.workers = {}
+        for r in list(range(1, 11)) + [285]:
+            self.workers[r] = RoomWorker(r, self)
 
         if self.round_count > 0:
-            self.last_10.extend(self.db.get_last(10))
             self.log(f"Reprise: {self.round_count} en base | Salle: gr={self.room_id}")
 
     def log(self, msg):
@@ -333,111 +379,69 @@ class Collector:
     def switch_room(self, new_gr):
         self.log(f"Changement de salle: gr={self.room_id} -> gr={new_gr}")
         self.room_id = new_gr
-        self.last_10.clear() # Clear specific room history
+        if new_gr not in self.workers:
+            self.workers[new_gr] = RoomWorker(new_gr, self)
+            asyncio.create_task(self.workers[new_gr].run())
         save_config({"room": new_gr})
-        self.loop.call_soon_threadsafe(self._switch_event.set)
 
     def get_live(self):
+        worker = self.workers.get(self.room_id)
+        last_m = list(worker.last_results) if worker else []
         last_100 = self.db.get_last(min(100, self.round_count))
+        
         p2 = sum(1 for m in last_100 if m >= 2.0) / len(last_100) * 100 if last_100 else 50
         p5 = sum(1 for m in last_100 if m >= 5.0) / len(last_100) * 100 if last_100 else 20
-        p10 = sum(1 for m in last_100 if m >= 10.0) / len(last_100) * 100 if last_100 else 10
-
+        
         low_streak = 0
-        for m in reversed(list(self.last_10)):
-            if m < 2.0:
-                low_streak += 1
-            else:
-                break
-
-        if self.round_count < 100: conf = "FAIBLE"
-        elif self.round_count < 1000: conf = "MOYENNE"
-        elif self.round_count < 5000: conf = "BONNE"
-        else: conf = "FORTE"
-
-        if low_streak >= 5: tip, sig = "GO 2x+", 3
-        elif low_streak >= 3: tip, sig = "PROBABLE 2x+", 2
-        elif low_streak >= 2: tip, sig = "SURVEILLER", 1
-        else: tip, sig = "ATTENDRE", 0
+        for m in reversed(last_m[-10:]):
+            if m < 2.0: low_streak += 1
+            else: break
 
         return {
             "room": self.room_id,
             "total": self.round_count,
-            "last_10": [round(m, 2) for m in self.last_10],
-            "last_20": [round(m, 2) for m in self.db.get_last(20)],
+            "last_10": [round(m, 2) for m in last_m[-10:]],
+            "last_s": [round(m, 2) for m in last_m[-20:]],
             "streak": low_streak,
-            "tip": tip, "signal": sig,
-            "prediction": {
-                "p2x": round(min(p2 + low_streak*3, 95), 1),
-                "p5x": round(min(p5 + low_streak*1.8, 70), 1),
-                "p10x": round(min(p10 + low_streak*0.9, 40), 1),
-                "confidence": conf,
-                "avg_100": round(statistics.mean(last_100), 2) if last_100 else 0,
-            },
-            "connected": self.connected,
+            "prediction": {"p2x": round(min(p2 + low_streak*4, 95), 1), "p5x": round(min(p5 + low_streak*2, 70), 1)},
+            "connected": worker.connected if worker else False,
             "updated": datetime.utcnow().isoformat() + "Z"
         }
+
+    def process_main_crash(self, arg):
+        mult = arg.get("f", 0)
+        rid = arg.get("l", 0)
+        ts = arg.get("ts", 0)
+        if mult > 0 and self.db.insert(rid, mult, ts):
+            self.round_count += 1
+            self.log(f"#{rid} {mult:.2f}x (Main gr={self.room_id})")
+            self.firebase.update_live(self.get_live())
+            if self.round_count % 30 == 0:
+                self.firebase.update_stats(self.analyzer.analyze())
 
     async def run(self):
         srv = HTTPServer(("0.0.0.0", PORT), Handler)
         Handler.collector = self
         threading.Thread(target=srv.serve_forever, daemon=True).start()
-        self.log(f"API sur :{PORT} | Dashboard: http://localhost:{PORT}/")
+        
+        # Start all workers
+        for w in self.workers.values():
+            asyncio.create_task(w.run())
 
         while self.running:
-            ws_url = WS_BASE.format(self.room_id)
-            self._switch_event.clear()
-            try:
-                self.log(f"Connexion WS salle gr={self.room_id}...")
-                headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36", "Origin": "https://1xbet.com"}
+            await asyncio.sleep(5)
+            # Update multi-room overview
+            snapshot = {}
+            for gr, w in self.workers.items():
+                if w.last_results:
+                    snapshot[gr] = {
+                        "last": list(w.last_results)[-3:],
+                        "up": w.updated_at,
+                        "ok": w.connected
+                    }
+            self.firebase.update_multi(snapshot)
+            self.firebase.update_live(self.get_live())
 
-                async with websockets.connect(
-                    ws_url, additional_headers=headers,
-                    ping_interval=20, ping_timeout=15,
-                    max_size=2**20, open_timeout=30,
-                ) as ws:
-                    self.connected = True
-                    self.log(f"Connecte a gr={self.room_id}!")
-
-                    await ws.send(json.dumps({"protocol": "json", "version": 1}) + "\x1e")
-                    await ws.recv()
-                    await ws.send(json.dumps({
-                        "arguments": [{"activity": 30, "currency": 27}],
-                        "invocationId": "0", "target": "Guest", "type": 1
-                    }) + "\x1e")
-                    self.log("Guest OK")
-
-                    async def ping_task():
-                        while self.running and not self._switch_event.is_set() and self.connected:
-                            await asyncio.sleep(10)
-                            try:
-                                await ws.send(json.dumps({"type": 6}) + "\x1e")
-                            except:
-                                break
-                    
-                    p_task = asyncio.create_task(ping_task())
-
-                    while self.running and not self._switch_event.is_set():
-                        try:
-                            msg = await asyncio.wait_for(ws.recv(), timeout=35)
-                            self._process(msg)
-                        except asyncio.TimeoutError:
-                            self.log("Timeout serveur sans data, tentative de maintien...")
-                        except websockets.exceptions.ConnectionClosed:
-                            self.log("Deconnecte")
-                            break
-                    p_task.cancel()
-
-                self.connected = False
-                if self._switch_event.is_set():
-                    self.log("Changement de salle detecte...")
-            except Exception as e:
-                self.connected = False
-                self.log(f"Erreur: {e}")
-
-            if self.running:
-                self.log("Reconnexion 3s...")
-                await asyncio.sleep(3)
 
     def _process(self, raw):
         for part in raw.split("\x1e"):
