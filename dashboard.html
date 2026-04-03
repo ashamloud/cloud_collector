@@ -396,6 +396,29 @@ function drawChart(canvasId, data) {
   });
 }
 
+async function findRoom() {
+  const input = document.getElementById('roomInput').value;
+  if(!input) return alert("Veuillez entrer 2 ou 3 derniers résultats séparés par des virgules (ex: 2.34, 1.12)");
+  
+  const btn = document.getElementById('findBtn');
+  btn.textContent = "Recherche...";
+  btn.disabled = true;
+  
+  try {
+    const res = await fetch('http://localhost:10000/find?r=' + input).then(r => r.json());
+    if(res.found) {
+      alert("✅ Synchronisé avec succès ! Nouvelle salle : gr=" + res.room);
+      await fetchData();
+    } else {
+      alert("❌ Introuvable. Vérifiez les valeurs ou attendez le prochain tour.");
+    }
+  } catch(e) {
+    alert("❌ Erreur de connexion au collecteur local (main.py tourne-t-il ?)");
+  }
+  btn.textContent = "Synchro";
+  btn.disabled = false;
+}
+
 function render() {
   if(!live && !stats) return;
   const l = live || {};
@@ -436,11 +459,15 @@ function render() {
   h += `<div class="card">
     <div class="card-header">
       <span>Dernier Résultat</span>
-      <span class="badge" style="background:var(--bg)">Salle ${l.room || '?'}</span>
+      <span class="badge" style="background:var(--bg)">gr=${l.room || '?'}</span>
     </div>
     <div class="flex-between">
       <div class="big-val mono ${getValColor(lastM)}">${lastM.toFixed(2)}x</div>
       <div class="sub-val">#${l.round || '?'} &bull; ${timeSince(l.updated)}</div>
+    </div>
+    <div style="display:flex; gap:8px; align-items:center; border-top: 1px solid var(--border); padding-top:12px; margin-top:12px;">
+      <input type="text" id="roomInput" placeholder="ex: 23.26, 1.44" style="flex:1; background:var(--bg); border:1px solid var(--border); color:var(--text); padding:6px 10px; border-radius:4px; font-size:0.8rem;">
+      <button id="findBtn" onclick="findRoom()" style="background:var(--primary); color:#fff; border:none; padding:6px 12px; border-radius:4px; font-weight:600; cursor:pointer; font-size:0.8rem;">Synchro</button>
     </div>
   </div>`;
 
