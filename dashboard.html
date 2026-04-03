@@ -420,12 +420,14 @@ async function findRoom() {
 }
 
 async function setRoom(gr) {
+  const btn = document.getElementById('findBtn');
   try {
     const res = await fetch('/setroom?gr=' + gr).then(r => r.json());
-    alert("Basculement vers Salle " + gr + " en cours...");
+    document.getElementById('switchMsg').textContent = "Basculement vers Salle " + gr + " en cours...";
+    setTimeout(() => { document.getElementById('switchMsg').textContent = ""; }, 3000);
     await fetchData();
   } catch(e) {
-    alert("❌ Erreur de basculement.");
+    document.getElementById('switchMsg').textContent = "❌ Erreur de connexion.";
   }
 }
 
@@ -490,6 +492,7 @@ function render() {
     h += `<button onclick="setRoom(${i})" style="padding:8px 2px; border-radius:4px; border:1px solid ${isAct ? 'var(--primary)' : 'var(--border)'}; background:${isAct ? 'var(--primary)' : 'var(--bg)'}; color:${isAct ? '#fff' : 'var(--text)'}; font-size:0.75rem; font-weight:600; cursor:pointer;">${i}</button>`;
   }
   h += `</div>
+    <div id="switchMsg" style="font-size:0.7rem; color:var(--primary); font-weight:600; text-align:center; height:12px; margin-bottom:4px;"></div>
     <div style="font-size:0.7rem; color:var(--muted); text-align:center;">Cliquez pour basculer sur une salle spécifique.</div>
   </div>`;
 
