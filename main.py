@@ -91,13 +91,14 @@ class DB:
 
     def insert(self, rid, mult, ts=0, cashouts=0):
         try:
-            self.conn.execute(
-                "INSERT OR IGNORE INTO rounds VALUES (?,?,?,?,?)",
+            cur = self.conn.cursor()
+            cur.execute(
+                "INSERT OR IGNORE INTO rounds (round_id, multiplier, timestamp, collected_at, cashout_count) VALUES (?,?,?,?,?)",
                 (rid, mult, ts, datetime.utcnow().isoformat(), cashouts)
             )
             self.conn.commit()
-            return True
-        except:
+            return cur.rowcount > 0
+        except Exception as e:
             return False
 
     def count(self):
