@@ -1,6 +1,6 @@
 services:
-  - type: worker
-    name: crash-collector
+  - type: web
+    name: crash-api
     runtime: python
     buildCommand: pip install -r requirements.txt
     startCommand: python main.py
