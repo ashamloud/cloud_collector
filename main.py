@@ -365,9 +365,9 @@ class Collector:
         config = load_config()
         self.room_id = config.get("room", DEFAULT_ROOM)
         
-        # Room Workers
+        # Room Workers (Salles 1 à 20 + Salle 285)
         self.workers = {}
-        for r in list(range(1, 11)) + [285]:
+        for r in list(range(1, 21)) + [285]:
             self.workers[r] = RoomWorker(r, self)
 
         if self.round_count > 0:
