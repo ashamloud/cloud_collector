@@ -29,7 +29,7 @@ FIREBASE_URL = os.environ.get(
     "https://xbet-8a511-default-rtdb.europe-west1.firebasedatabase.app"
 )
 WS_BASE = "wss://1xbet.com/games-frame/sockets/crash?ref=1&gr={}&whence=55&fcountry=165&appGuid=games-web-host-b2c-web-v3&lng=fr&v=1.5"
-DEFAULT_ROOM = 285
+DEFAULT_ROOM = 3
 
 
 def load_config():
