@@ -405,7 +405,7 @@ async function findRoom() {
   btn.disabled = true;
   
   try {
-    const res = await fetch('http://localhost:10000/find?r=' + input).then(r => r.json());
+    const res = await fetch('/find?r=' + input).then(r => r.json());
     if(res.found) {
       alert("✅ Synchronisé avec succès ! Nouvelle salle : gr=" + res.room);
       await fetchData();
@@ -413,7 +413,7 @@ async function findRoom() {
       alert("❌ Introuvable. Vérifiez les valeurs ou attendez le prochain tour.");
     }
   } catch(e) {
-    alert("❌ Erreur de connexion au collecteur local (main.py tourne-t-il ?)");
+    alert("❌ Erreur de connexion au collecteur. Assurez-vous d'utiliser l'URL Render ou le host local valide.");
   }
   btn.textContent = "Synchro";
   btn.disabled = false;
